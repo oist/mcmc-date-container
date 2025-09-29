@@ -1,0 +1,368 @@
+#!/usr/bin/env bash
+
+set -e
+
+usage() {
+    echo "Usage: $(basename "$0") [OPTIONS] RELAXED_MOLECULAR_CLOCK_MODEL LIKELIHOOD_SPECIFICATION COMMANDS"
+    echo
+    echo "Auxiliary data options:"
+    echo "-b Activate braces"
+    echo "-c Activate calibrations"
+    echo "-k Activate constraints"
+    echo
+    echo "Algorithm related options:"
+    echo "-i NAME  Initialize state and cycle from previous analysis with NAME"
+    echo "-H       Activate Hamiltonian proposal (slow, but great convergence)"
+    echo "-m       Use Mc3 algorithm insteahd of Mhg"
+    echo
+    echo "Other options:"
+    echo "-f FILE    Use a different analysis configuration file (relative path)"
+    echo "-n SUFFIX  Use an analysis suffix"
+    echo "-p         Activate profiling"
+    echo "-s         Use Haskell stack instead of cabal-install"
+    echo "-a         Use Apptainer image instead of cabal-install or Haskell stack"
+    echo "-r FILE    Absolute path to the mcmcdate Apptainer SIF file, if not set, by default: <script's directory>/mcmcdate.sif is used"
+    echo
+    echo "Relaxed molecular clock model:"
+    echo "ug  Uncorrelated gamma model"
+    echo "ul  Uncorrelated log normal model"
+    echo "uw  Uncorrelated white noise model"
+    echo "al  Autocorrelated log normal model"
+    echo
+    echo "Likelihood specification:"
+    echo "f  Full covariance matix"
+    echo "s  Sparse covariance matrix"
+    echo "u  Univariate approach"
+    echo "n  No likelihood; use prior and auxiliary data only"
+    echo
+    echo "Available commands:"
+    echo "p  Prepare analysis"
+    echo "r  Run dating analysis"
+    echo "c  Continue dating analysis"
+    echo "m  Compute marginal likelihood"
+    echo
+    echo "A configuration file \"analysis.conf\" is required."
+    echo "For reference, see the sample configuration file."
+}
+
+braces_activated=0
+calibrations_activated=0
+constraints_activated=0
+
+init_from_save_activated=0
+init_from_save_name=
+hamiltonian_activated=0
+mc3_activated=0
+
+profiling_activated=0
+use_stack=0
+
+use_apptainer=0
+scriptdir="$( dirname -- "${BASH_SOURCE[0]}"; )"
+scriptdir="$( realpath -e -- "$scriptdir"; )"
+apptainer_sif_file="${scriptdir}/mcmcdate.sif"
+
+analysis_configuration_file="analysis.conf"
+analysis_suffix=
+
+OPTIND=1
+while getopts "h?bcki:Hmf:n:psar:" opt; do
+    case "$opt" in
+        h|\?)
+           usage
+           exit 0
+           ;;
+        b) braces_activated=1
+           ;;
+        c) calibrations_activated=1
+           ;;
+        k) constraints_activated=1
+           ;;
+        i) init_from_save_activated=1
+           init_from_save_name=$OPTARG
+           ;;
+        H) hamiltonian_activated=1
+           ;;
+        m) mc3_activated=1
+           ;;
+        f) analysis_configuration_file=$OPTARG
+           ;;
+        n) analysis_suffix=$OPTARG
+           ;;
+        p) profiling_activated=1
+           ;;
+        s) use_stack=1
+           ;;
+	a) use_apptainer=1
+           use_stack=0
+           ;;
+        r) apptainer_sif_file=$OPTARG
+           use_apptainer=1
+	   use_stack=0
+           ;;
+        *) usage
+           exit 1
+           ;;
+    esac
+done
+shift $((OPTIND-1))
+[ "${1:-}" = "--" ] && shift
+
+# Arguments.
+if [[ $# -lt 3 ]]
+then
+    usage
+    exit 1
+fi
+
+# shellcheck source=analysis.conf
+# shellcheck disable=SC1091
+source "./${analysis_configuration_file}"
+
+relaxed_molecular_clock_model=$1
+shift
+
+relaxed_molecular_clock_model_flags=()
+case "$relaxed_molecular_clock_model" in
+    ug) relaxed_molecular_clock_model_flags+=(--relaxed-molecular-clock "UncorrelatedGamma")
+       ;;
+    ul) relaxed_molecular_clock_model_flags+=(--relaxed-molecular-clock "UncorrelatedLogNormal")
+       ;;
+    uw) relaxed_molecular_clock_model_flags+=(--relaxed-molecular-clock "UncorrelatedWhiteNoise")
+       ;;
+    al) relaxed_molecular_clock_model_flags+=(--relaxed-molecular-clock "AutocorrelatedLogNormal")
+       ;;
+    *) usage
+       exit 1
+       ;;
+esac
+if [ ${#relaxed_molecular_clock_model_flags[@]} -eq 0 ]; then
+    usage
+    exit 1
+fi
+
+likelihood_specification=$1
+shift
+
+likelihood_specification_flags=()
+case "$likelihood_specification" in
+    f) likelihood_specification_flags+=(--likelihood-spec "FullMultivariateNormal")
+       ;;
+    s) likelihood_specification_flags+=(--likelihood-spec "SparseMultivariateNormal 0.1")
+       ;;
+    u) likelihood_specification_flags+=(--likelihood-spec "UnivariateNormal")
+       ;;
+    n) likelihood_specification_flags+=(--likelihood-spec "NoLikelihood")
+       ;;
+    *) usage
+       exit 1
+       ;;
+esac
+if [ ${#likelihood_specification_flags[@]} -eq 0 ]; then
+    usage
+    exit 1
+fi
+
+command=$1
+shift
+
+if [[ -z $analysis_name || -z $rooted_tree || -z $trees ]]
+then
+    usage
+    exit 1
+else
+    echo "Analysis name: ${analysis_name}."
+    echo "Rooted tree: ${rooted_tree}."
+    echo "Trees: ${trees}."
+fi
+
+if [[ $use_stack -eq 0 ]] && [[ $use_apptainer -eq 0 ]]
+then
+    echo "Using cabal-install."
+    prog_name="cabal"
+    prog_cmd="run"
+    prog_profiling_flag="--enable-profiling"
+    prog_target="mcmc-date-run"
+    option_closing="--"
+elif [[ $use_stack -eq 1 ]] && [[ $use_apptainer -eq 0 ]]
+then
+    echo "Using Stack."
+    prog_name="stack"
+    prog_cmd="exec"
+    prog_profiling_flag="--profile"
+    prog_target="mcmc-date-run"
+    option_closing="--"
+elif [[ $use_stack -eq 1 ]] && [[ $use_apptainer -eq 1 ]]
+then
+    echo "Error: both use_stack and use_apptainer is set to 1, please choose only one of these."
+    exit 1
+elif [[ $use_stack -eq 0 ]] && [[ $use_apptainer -eq 1 ]]
+then
+    echo "Using Apptainer."
+    prog_name="apptainer"
+    prog_cmd="run"
+    prog_profiling_flag=""
+    prog_target=$apptainer_sif_file
+    option_closing=""
+else
+    echo "Error: use_stack is neither 0 nor 1: ${use_stack}."
+    exit 1
+fi
+
+outdir="results"
+c_flags=()
+
+if [[ $braces_activated -eq 1 ]]
+then
+    if [[ -z $braces ]]; then
+        echo "Braces activated but brace file not available."
+        exit 1
+    elif [[ ! -f $braces ]]; then
+        echo "Braces activated but brace file ${braces} does not exist."
+        exit 1
+    else
+        echo "Braces: ${braces}."
+        outdir="${outdir}-braces"
+        c_flags+=(--braces "../$braces")
+    fi
+fi
+
+if [[ $calibrations_activated -eq 1 ]]
+then
+    if [[ -z $calibrations ]]; then
+        echo "Calibrations activated but calibration file not available."
+        exit 1
+    elif [[ ! -f $calibrations ]]; then
+        echo "Calibrations activated but calibration file ${calibrations} does not exist."
+        exit 1
+    else
+        echo "Calibrations: ${calibrations}."
+        outdir="${outdir}-calibrations"
+        if [[ ${calibrations} =~ .*csv ]]; then
+          c_flags+=(--calibrations "csv ../$calibrations")
+        else
+          c_flags+=(--calibrations "tree ../$calibrations")
+        fi
+    fi
+fi
+
+if [[ $constraints_activated -eq 1 ]]
+then
+    if [[ -z $constraints ]]; then
+        echo "Constraints activated but constraint file not available."
+        exit 1
+    elif [[ ! -f $constraints ]]; then
+        echo "Constraints activated but constraint file ${constraints} does not exist."
+        exit 1
+    else
+        echo "Constraints: ${constraints}."
+        outdir="${outdir}-constraints"
+        c_flags+=(--constraints "../$constraints")
+    fi
+fi
+
+case "$relaxed_molecular_clock_model" in
+    ug) outdir="${outdir}-ugamma"
+        ;;
+    ul) outdir="${outdir}-ulognormal"
+        ;;
+    uw) outdir="${outdir}-uwhitenoise"
+        ;;
+    al) outdir="${outdir}-alognormal"
+        ;;
+    *) usage
+       exit 1
+       ;;
+esac
+
+case "$likelihood_specification" in
+    f) outdir="${outdir}-full"
+       ;;
+    s) outdir="${outdir}-sparse"
+       ;;
+    u) outdir="${outdir}-univariate"
+       ;;
+    n) outdir="${outdir}-prior"
+       ;;
+    *) usage
+       exit 1
+       ;;
+esac
+
+if [[ $init_from_save_activated -eq 1 ]]
+then
+    echo "Initialize from save activated."
+    c_flags+=(--init-from-save "$init_from_save_name")
+fi
+
+if [[ $hamiltonian_activated -eq 1 ]]
+then
+    echo "Hamiltonian proposal activated."
+    c_flags+=(--hamiltonian)
+fi
+
+if [[ $mc3_activated -eq 1 ]]
+then
+    echo "Mc3 algorithm activated."
+    c_flags+=(--mc3)
+fi
+
+p_flags=()
+p_flags_prog=()
+p_flags_rts=()
+if [[ $profiling_activated -eq 1 ]]
+then
+    p_flags+=("${prog_profiling_flag}")
+    #p_flags_prog+=(--profile)
+    #p_flags_rts+=(-p)
+    p_flags_prog+=()
+    p_flags_rts+=(-p -l -hy)
+    outdir="${outdir}-profile"
+fi
+
+# Suffix from configuration file.
+if [[ -n $suffix ]]
+then
+    outdir="${outdir}-${suffix}"
+fi
+
+# Suffix from command line.
+if [[ -n $analysis_suffix ]]
+then
+    outdir="${outdir}-${analysis_suffix}"
+fi
+
+echo "Results directory: ${outdir}."
+mkdir -p "$outdir"; cd "$outdir"
+
+if [[ "$command" == "p" ]]
+then
+    ${prog_name} ${prog_cmd} "${p_flags[@]}" ${option_closing} ${prog_target} prepare \
+          --analysis-name "$analysis_name" --rooted-tree "../$rooted_tree" --trees "../$trees" \
+          "${likelihood_specification_flags[@]}" \
+          +RTS -N2 "${p_flags_rts[@]}"
+elif [[ "$command" == "r" ]]
+then
+    ${prog_name} ${prog_cmd} "${p_flags[@]}" ${option_closing} ${prog_target} run \
+          --analysis-name "$analysis_name" "${c_flags[@]}" "${p_flags_prog[@]}" \
+          "${relaxed_molecular_clock_model_flags[@]}" \
+          "${likelihood_specification_flags[@]}" \
+          +RTS -N2 -M8G "${p_flags_rts[@]}"
+elif [[ "$command" == "c" ]]
+then
+    ${prog_name} ${prog_cmd} "${p_flags[@]}" ${option_closing} ${prog_target} continue \
+          --analysis-name "$analysis_name" "${c_flags[@]}" "${p_flags_prog[@]}" \
+          "${relaxed_molecular_clock_model_flags[@]}" \
+          "${likelihood_specification_flags[@]}" \
+          +RTS -N2 -M8G "${p_flags_rts[@]}"
+elif [[ "$command" == "m" ]]
+then
+    ${prog_name} ${prog_cmd} "${p_flags[@]}" ${option_closing} ${prog_target} marginal-likelihood \
+          --analysis-name "$analysis_name" "${c_flags[@]}" "${p_flags_prog[@]}" \
+          "${relaxed_molecular_clock_model_flags[@]}" \
+          "${likelihood_specification_flags[@]}" \
+          +RTS -N -M8G "${p_flags_rts[@]}"
+else
+    usage
+    exit 1
+fi

@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+
+# Analyze all results.
+
+set -e
+
+usage() {
+  echo "Usage: $(basename "$0") [options]"
+  echo
+  echo "Options:"
+  echo " -h      Display help and exit"
+  echo " -s      Skip files with previous analysis"
+  echo " -a      Use Apptainer image instead of cabal-install or Haskell stack"
+  echo " -r FILE Absolute path to the mcmcdate Apptainer SIF file, if not set, by default: <script's directory>/mcmcdate.sif is used"
+}
+
+skip=FALSE
+
+use_apptainer=0
+scriptdir="$( dirname -- "${BASH_SOURCE[0]}"; )"
+scriptdir="$( realpath -e -- "$scriptdir"; )"
+apptainer_sif_file="${scriptdir}/mcmcdate.sif"
+
+while getopts "shar:" o; do
+  case "$o" in
+    s) skip=TRUE
+       ;;
+    h) usage
+       exit 0
+       ;;
+    a) use_apptainer=1
+       ;;
+    r) apptainer_sif_file=$OPTARG
+       use_apptainer=1
+       ;;
+    *) usage
+       exit 1
+       ;;
+  esac
+done
+
+if [[ use_apptainer -eq 1 ]]
+then
+	apptainer run $apptainer_sif_file analyze
+	exit $?
+fi
+
+function analyze_tree_monitor() {
+    echo "Prepare the Nexus file to be opened with Densitree."
+    echo "Thin the monitor file."
+    trace-thin 5 "$1" > "${1}.thinned"
+    echo "Convert thinned file to Nexus format."
+    trees-monitor-to-nexus "${1}.thinned"
+
+    echo "Compute other summary statistics."
+    if [[ "$1" == *"timetree"* ]]; then
+      trees-monitor-summary-ultrametric "${1}" 0.25
+    elif [[ "$1" == *"ratetree"* ]]; then
+      ana_name=${1%.ratetree.monitor}
+      params_monitor_file="${ana_name}.params.monitor"
+      mean=$(awk '{count+=$8} END{print count/NR}' "${params_monitor_file}")
+      trees-monitor-summary "${1}" 0.25 "${mean}"
+    else
+      echo "ERROR: WRONG TREE MONITOR FILE."
+      exit 1
+    fi
+}
+
+shopt -s extglob
+
+if [[ -n $1 ]]
+then
+  ds=("$1")
+else
+  ds=(results*)
+fi
+
+for d in "${ds[@]}"
+do
+    ( cd "$d"
+      echo "Current directory: ${PWD}."
+      for m in *{timetree,ratetree}.@(00.|)monitor
+      do
+        if [[ "$skip" = "TRUE" ]] && [[ -e "${m}.thinned" ]]; then
+          echo "Skip analysis of ${m}."
+        else
+          echo "Analyze monitor file ${m}."
+          analyze_tree_monitor "$m"
+        fi
+      done
+      echo "Create tree file with node indices."
+      for f in *.meantree
+      do
+          tree-identify "$f"
+      done
+    )
+done
