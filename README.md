@@ -1,6 +1,12 @@
 # mcmc-date in an Apptainer container
 
-## How to run mcmc-date through the container
+This repository provides a containerized version of [McmcDate](https://github.com/dschrempf/mcmc-date), developed by Dominik Schrempf ([@dschrempf](https://github.com/dschrempf)), that can date a phylogenetic tree with constraints.
+
+By using this container image, you can omit the necessity of installing [Haskell](https://www.haskell.org/), the computer language `mcmc-date` was written in, the [Glasgow Haskell Compiler](https://www.haskell.org/ghc/), and [Cabal](https://www.haskell.org/cabal/) on your system and just run `mcmc-date` directly instead.
+
+Currently an [Apptainer](https://apptainer.org/) container is provided which is supported by most HPC clusters.
+
+## TL;DR in medias res start: Running `mcmc-date` through the Apptainer container on your dataset
 
 Go to the directory with your dataset (rooted tree, treelist, calibrations and constraints, etc).
 ```
@@ -42,11 +48,78 @@ Analyze the results:
 ./analyze
 ```
 
+## Files in this repository
+
+- [analyze](./analyze) this wrapper script is a modified version of [McmcDate](https://github.com/dschrempf/mcmc-date)'s `analyze` script including the option (`-a -r PATH`) to call an Apptainer container instead of running it directly in a local Haskell environment
+- [run](./run) this wrapper script is a modified version of [McmcDate](https://github.com/dschrempf/mcmc-date)'s `run` script including the option (`-a -r PATH`) to call an Apptainer container instead of running it directly in a local Haskell environment
+- [mcmcdate.sif](./mcmcdate.sif] Apptainer's sif container image that runs a slim version of Debian Trixie (13.1) and contains the `mcmc-date` and its helper scripts in binary format
+- [mcmcdate_debian_global_v2.def](./mcmcdate_debian_global_v2.def) Apptainer container definition file to create a fully functional Haskell environment able to compile `mcmc-date` and its helper scripts
+- [mcmcdate_debian_global_v2_multistage.def](./mcmcdate_debian_global_v2_multistage.def) Apptainer multistage container definition file that after creating the `mcmc-date` binaries, it copies them into a fresh Debian installation getting rid of the Haskell environment and reducing final image size
+
+
+## Usage
+
+### Usage of the `run` script
+```
+Usage: run [OPTIONS] RELAXED_MOLECULAR_CLOCK_MODEL LIKELIHOOD_SPECIFICATION COMMANDS
+
+Auxiliary data options:
+-b Activate braces
+-c Activate calibrations
+-k Activate constraints
+
+Algorithm related options:
+-i NAME  Initialize state and cycle from previous analysis with NAME
+-H       Activate Hamiltonian proposal (slow, but great convergence)
+-m       Use Mc3 algorithm insteahd of Mhg
+
+Other options:
+-f FILE    Use a different analysis configuration file (relative path)
+-n SUFFIX  Use an analysis suffix
+-p         Activate profiling
+-s         Use Haskell stack instead of cabal-install
+-a         Use Apptainer image instead of cabal-install or Haskell stack
+-r FILE    Absolute path to the mcmcdate Apptainer SIF file, if not set, by default: <script's directory>/mcmcdate.sif is used
+
+Relaxed molecular clock model:
+ug  Uncorrelated gamma model
+ul  Uncorrelated log normal model
+uw  Uncorrelated white noise model
+al  Autocorrelated log normal model
+
+Likelihood specification:
+f  Full covariance matix
+s  Sparse covariance matrix
+u  Univariate approach
+n  No likelihood; use prior and auxiliary data only
+
+Available commands:
+p  Prepare analysis
+r  Run dating analysis
+c  Continue dating analysis
+m  Compute marginal likelihood
+
+A configuration file "analysis.conf" is required.
+For reference, see the sample configuration file.
+```
+
+### Usage of the `analyze` script
+```
+Usage: analyze [options]
+
+Options:
+ -h      Display help and exit
+ -s      Skip files with previous analysis
+ -a      Use Apptainer image instead of cabal-install or Haskell stack
+ -r FILE Absolute path to the mcmcdate Apptainer SIF file, if not set, by default: <script's directory>/mcmcdate.sif is used
+```
+
+
 ## How to build the container image or modify it
 
 For development:
 ```
-APPTAINER_TMPDIR="/local/tmp/dir" apptainer build --sandbox mcmcdate_debian_global_v2 mcmcdate_debian_global_v2.def
+APPTAINER_TMPDIR="/your/local/tmp/dir" apptainer build --sandbox mcmcdate_debian_global_v2 mcmcdate_debian_global_v2.def
 ```
 
 Now you can enter the image and modify it to your needs via:
@@ -54,7 +127,8 @@ Now you can enter the image and modify it to your needs via:
 apptainer shell --writable mcmcdate_debian_global_v2
 ```
 
-For distribution use the multistage build that removes Cabal, GHC, etc and only keeps the mcmc-date binaries and their library dependencies:
+For distribution use the multistage build that removes Cabal, GHC, etc and only keeps the `mcmc-date` binaries and their library dependencies:
 ```
-APPTAINER_TMPDIR="/local/tmp/dir" apptainer build mcmcdate.sif mcmcdate_debian_global_v2_multistage.def
+APPTAINER_TMPDIR="/your/local/tmp/dir" apptainer build mcmcdate.sif mcmcdate_debian_global_v2_multistage.def
 ```
+
