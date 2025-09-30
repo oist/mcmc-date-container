@@ -30,7 +30,7 @@ usage() {
     echo "al  Autocorrelated log normal model"
     echo
     echo "Likelihood specification:"
-    echo "f  Full covariance matix"
+    echo "f  Full covariance matrix"
     echo "s  Sparse covariance matrix"
     echo "u  Univariate approach"
     echo "n  No likelihood; use prior and auxiliary data only"
