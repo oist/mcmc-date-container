@@ -52,10 +52,12 @@ Analyze the results:
 
 - [analyze](./analyze) this wrapper script is a modified version of [McmcDate](https://github.com/dschrempf/mcmc-date)'s `analyze` script including the option (`-a -r PATH`) to call an Apptainer container instead of running it directly in a local Haskell environment
 - [run](./run) this wrapper script is a modified version of [McmcDate](https://github.com/dschrempf/mcmc-date)'s `run` script including the option (`-a -r PATH`) to call an Apptainer container instead of running it directly in a local Haskell environment
-- [mcmcdate.sif](./mcmcdate.sif] Apptainer's sif container image that runs a slim version of Debian Trixie (13.1) and contains the `mcmc-date` and its helper scripts in binary format
+- [mcmcdate.sif](./mcmcdate.sif) Apptainer's sif container image that runs a slim version of Debian Trixie (13.1) and contains the `mcmc-date` and its helper scripts in binary format
 - [mcmcdate_debian_global_v2.def](./mcmcdate_debian_global_v2.def) Apptainer container definition file to create a fully functional Haskell environment able to compile `mcmc-date` and its helper scripts
 - [mcmcdate_debian_global_v2_multistage.def](./mcmcdate_debian_global_v2_multistage.def) Apptainer multistage container definition file that after creating the `mcmc-date` binaries, it copies them into a fresh Debian installation getting rid of the Haskell environment and reducing final image size
-
+- [example/analysis.conf](example/analysis.conf) Example analysis.conf file for `mcmc-date`. Please note, that even if calibrations and constraints are specified here, they will be only used if you activate them with the corresponding switches for the `run` script (`-c` and `-k`)
+- [example/calibrations.csv](example/calibrations.csv) Example time calibrations file (the header line is mandatory). Two leaf names pinpoint their most recent common ancestor node the calibration is to be set on.
+- [example/constraints.csv](example/constraints.csv) Example relative constraints file (the header line is mandatory). Two leaf names pinpoint their most recent common ancestor node the constraints it to be set on.
 
 ## Usage
 
