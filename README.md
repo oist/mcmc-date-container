@@ -33,7 +33,7 @@ ln -s mcmc-date-container/run
 ln -s mcmc-date-container/analyze
 ```
 
-Prepare your dataset for the mcmc-date analysis:
+### Prepare your dataset for the mcmc-date analysis
 ```
 ./run -a -r "$(pwd)/mcmc-date-container/mcmcdate.sif" -f analysis.conf -c -k ug f p
 ```
@@ -43,17 +43,19 @@ where
 - with `-f` we specify the analysis configuration file, 
 - with `-c` we activate calibrations, 
 - with `-k` we activate constraints, 
-- with `ug` we ask for uncorrelated gamma molecular clock model, 
+- with `ug` we ask for the uncorrelated gamma molecular clock model, 
 - with `f` we ask for a full covariant likelihood matrix 
 - and finally with `p` we run the preparation step of `mcmc-date`.
 
-Run mcmc-date analysis:
+See the usage description of `run` below for more options.
+
+### Run mcmc-date analysis
 ```
 ./run -a -r "$(pwd)/mcmc-date-container/mcmcdate.sif" -f analysis.conf -c -k ug f r
 ```
 where all the options are the same as above except replacing `p` (prepare) with `r` (run), thus running the tree dating analysis.
 
-Analyze the results:
+### Analyze the results
 ```
 ./analyze
 ```
@@ -65,7 +67,7 @@ Analyze the results:
 - [mcmcdate.sif](./mcmcdate.sif) Apptainer's sif container image that runs a slim version of Debian Trixie (13.1) and contains the `mcmc-date` and its helper scripts in binary format
 - [mcmcdate_debian_global_v2.def](./mcmcdate_debian_global_v2.def) Apptainer container definition file to create a fully functional Haskell environment able to compile `mcmc-date` and its helper scripts
 - [mcmcdate_debian_global_v2_multistage.def](./mcmcdate_debian_global_v2_multistage.def) Apptainer multistage container definition file that after creating the `mcmc-date` binaries, it copies them into a fresh Debian installation getting rid of the Haskell environment and reducing final image size
-- [example/analysis.conf](example/analysis.conf) Example analysis.conf file for `mcmc-date`. Please note, that even if calibrations and constraints are specified here, they will be only used if you activate them with the corresponding switches for the `run` script (`-c` and `-k`)
+- [example/analysis.conf](example/analysis.conf) Example `analysis.conf` file for `mcmc-date`. Please note, that even though calibrations and constraints have to be specified in this file, they will be only used if you activate them with the corresponding switches for the `run` script (`-c` and `-k`) also.
 - [example/calibrations.csv](example/calibrations.csv) Example time calibrations file (the header line is mandatory). Two leaf names pinpoint their most recent common ancestor node the calibration is to be set on.
 - [example/constraints.csv](example/constraints.csv) Example relative constraints file (the header line is mandatory). Two leaf names pinpoint their most recent common ancestor node the constraint is to be set on.
 
