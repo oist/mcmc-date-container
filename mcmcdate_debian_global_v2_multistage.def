@@ -1,0 +1,434 @@
+Bootstrap: docker
+From: debian:trixie-slim
+Stage: build
+
+%help
+	This Apptainer recipe will build a Haskell environment with mcmc-date set up in order to execute it on aribtrary datasets.
+
+%labels
+	Maintainer Lenard Szantho
+	Version v2.0
+%post
+	export DEBIAN_FRONTEND=noninteractive
+	apt-get update
+	echo "Installing Haskell build dependencies"
+	apt-get install --yes --no-install-recommends ca-certificates build-essential curl libffi-dev libffi8 libgmp-dev libgmp10 libncurses-dev libncurses6 libtinfo6 perl tar xz-utils gcc g++ zlib1g-dev
+	echo "Installing git"
+	apt-get install --yes --no-install-recommends git
+	echo "Installing cabal and ghc"
+	apt-get install --yes --no-install-recommends cabal-install ghc
+	echo "Setting global directories for cabal"
+	mkdir -p /etc/cabal
+	cat > /etc/cabal/config <<EOF
+-- This is the configuration file for the 'cabal' command line tool.
+--
+-- The available configuration options are listed below.
+-- Some of them have default values listed.
+--
+-- Lines (like this one) beginning with '--' are comments.
+-- Be careful with spaces and indentation because they are
+-- used to indicate layout for nested sections.
+--
+-- This config file was generated using the following versions
+-- of Cabal and cabal-install:
+-- Cabal library version: 3.10.3.0
+-- cabal-install version: 3.10.3.0
+
+
+repository hackage.fpcomplete.com
+  url: http://hackage.fpcomplete.com/
+  -- secure: True
+  -- root-keys:
+  -- key-threshold: 3
+
+-- ignore-expiry: True
+-- http-transport:
+-- nix:
+-- store-dir:
+-- active-repositories:
+-- local-no-index-repo:
+remote-repo-cache: /opt/haskell/packages
+-- logs-dir: /opt/haskell/logs
+-- default-user-config:
+-- verbose: 1
+-- cabal-file:
+-- keep-temp-files:
+-- compiler: ghc
+-- with-compiler:
+-- with-hc-pkg:
+-- program-prefix: 
+-- program-suffix: 
+-- library-vanilla: True
+-- library-profiling:
+-- shared:
+-- static:
+-- executable-dynamic: False
+-- executable-static: False
+-- profiling:
+-- profiling-shared:
+-- executable-profiling:
+-- profiling-detail:
+-- library-profiling-detail:
+-- optimization: True
+-- debug-info: False
+-- build-info:
+-- library-for-ghci:
+-- split-sections: False
+-- split-objs: False
+-- executable-stripping:
+-- library-stripping:
+-- configure-option:
+-- user-install: True
+-- package-db:
+-- flags:
+-- extra-include-dirs:
+-- deterministic:
+-- cid:
+-- extra-lib-dirs:
+-- extra-lib-dirs-static:
+-- extra-framework-dirs:
+-- extra-prog-path:
+-- instantiate-with:
+-- tests: False
+-- coverage: False
+-- library-coverage:
+-- exact-configuration: False
+-- benchmarks: False
+-- relocatable: False
+-- response-files:
+-- allow-depending-on-private-libs:
+-- coverage-for:
+-- ignore-build-tools:
+-- cabal-lib-version:
+-- append:
+-- backup:
+-- constraint:
+-- preference:
+-- solver: modular
+-- allow-older: False
+-- allow-newer: False
+-- write-ghc-environment-files:
+-- documentation: False
+-- doc-index-file: \$datadir/doc/\$arch-\$os-\$compiler/index.html
+-- only-download: False
+-- target-package-db:
+-- max-backjumps: 4000
+-- reorder-goals: False
+-- count-conflicts: True
+-- fine-grained-conflicts: True
+-- minimize-conflict-set: False
+-- independent-goals: False
+-- prefer-oldest: False
+-- shadow-installed-packages: False
+-- strong-flags: False
+-- allow-boot-library-installs: False
+-- reject-unconstrained-dependencies: none
+-- reinstall: False
+-- avoid-reinstalls: False
+-- force-reinstalls: False
+-- upgrade-dependencies: False
+-- index-state:
+-- root-cmd:
+-- symlink-bindir:
+build-summary: /opt/haskell/logs/build.log
+-- build-log:
+remote-build-reporting: none
+-- report-planning-failure: False
+-- per-component: True
+-- run-tests:
+-- semaphore: False
+jobs: \$ncpus
+-- keep-going: False
+-- offline: False
+-- lib: False
+-- package-env:
+-- overwrite-policy:
+-- install-method:
+installdir: /opt/haskell/bin
+-- token:
+-- username:
+-- password:
+-- password-command:
+-- multi-repl:
+-- builddir:
+
+haddock
+  -- keep-temp-files:
+  -- hoogle: False
+  -- html: False
+  -- html-location:
+  -- executables: False
+  -- tests: False
+  -- benchmarks: False
+  -- foreign-libraries: False
+  -- all:
+  -- internal: False
+  -- css:
+  -- hyperlink-source: False
+  -- quickjump: False
+  -- hscolour-css:
+  -- contents-location:
+  -- index-location:
+  -- base-url:
+  -- resources-dir:
+  -- output-dir:
+  -- use-unicode: False
+
+init
+  -- interactive: False
+  -- quiet: False
+  -- no-comments: False
+  -- minimal: False
+  -- cabal-version: 3.0
+  -- license:
+  -- extra-doc-file:
+  -- tests:
+  -- test-dir:
+  -- simple: False
+  -- language: Haskell2010
+  -- application-dir: app
+  -- source-dir: src
+
+install-dirs user
+  -- prefix: /usr/local
+  -- bindir: \$prefix/bin
+  -- libdir: \$prefix/lib
+  -- libsubdir: \$abi/$libname
+  -- dynlibdir: \$libdir/$abi
+  -- libexecdir: \$prefix/libexec
+  -- libexecsubdir: \$abi/$pkgid
+  -- datadir: \$prefix/share
+  -- datasubdir: \$abi/$pkgid
+  -- docdir: \$datadir/doc/$abi/$pkgid
+  -- htmldir: \$docdir/html
+  -- haddockdir: \$htmldir
+  -- sysconfdir: \$prefix/etc
+
+install-dirs global
+  -- prefix: /usr/local
+  -- bindir: \$prefix/bin
+  -- libdir: \$prefix/lib
+  -- libsubdir: \$abi/$libname
+  -- dynlibdir: \$libdir/$abi
+  -- libexecdir: \$prefix/libexec
+  -- libexecsubdir: \$abi/$pkgid
+  -- datadir: \$prefix/share
+  -- datasubdir: \$abi/$pkgid
+  -- docdir: \$datadir/doc/$abi/$pkgid
+  -- htmldir: \$docdir/html
+  -- haddockdir: \$htmldir
+  -- sysconfdir: \$prefix/etc
+
+program-locations
+  -- alex-location:
+  -- ar-location:
+  -- c2hs-location:
+  -- cpphs-location:
+  -- doctest-location:
+  -- gcc-location:
+  -- ghc-location:
+  -- ghc-pkg-location:
+  -- ghcjs-location:
+  -- ghcjs-pkg-location:
+  -- haddock-location:
+  -- happy-location:
+  -- hpc-location:
+  -- hsc2hs-location:
+  -- hscolour-location:
+  -- jhc-location:
+  -- ld-location:
+  -- pkg-config-location:
+  -- runghc-location:
+  -- strip-location:
+  -- tar-location:
+  -- uhc-location:
+
+program-default-options
+  -- alex-options:
+  -- ar-options:
+  -- c2hs-options:
+  -- cpphs-options:
+  -- doctest-options:
+  -- gcc-options:
+  -- ghc-options:
+  -- ghc-pkg-options:
+  -- ghcjs-options:
+  -- ghcjs-pkg-options:
+  -- haddock-options:
+  -- happy-options:
+  -- hpc-options:
+  -- hsc2hs-options:
+  -- hscolour-options:
+  -- jhc-options:
+  -- ld-options:
+  -- pkg-config-options:
+  -- runghc-options:
+  -- strip-options:
+  -- tar-options:
+  -- uhc-options:
+EOF
+	echo "Installing mcmc-date dependencies"
+	apt-get install --yes --no-install-recommends liblapack3 libopenblas0 liblapack-dev libopenblas-dev
+	echo "Cloning mcmc-date repository"
+	git clone https://github.com/dschrempf/mcmc-date.git
+	cd mcmc-date
+	CABAL_CONFIG="/etc/cabal/config" cabal update
+	CABAL_CONFIG="/etc/cabal/config" cabal build
+	CABAL_CONFIG="/etc/cabal/config" cabal install --install-method=copy
+        cat > scripts/mcmc-date-scripts.cabal <<EOF
+cabal-version:       3.0
+name:                mcmc-date-scripts
+version:             1.0.0
+-- synopsis:
+-- description:
+-- bug-reports:
+-- license:
+-- copyright:
+-- category:
+
+executable tree-identify
+  main-is:             tree-identify.hs
+  -- other-extensions:
+  build-depends:
+     , base
+     , bytestring
+     , elynx-tree
+  ghc-options: -Wall
+  default-language:    Haskell2010
+
+executable trees-midpoint-root
+  main-is:             trees-midpoint-root.hs
+  -- other-extensions:
+  build-depends:
+     , base
+     , bytestring
+     , containers
+     , elynx-tree
+     , hmatrix
+     , mcmc-date
+     , vector
+  ghc-options: -Wall
+  default-language:    Haskell2010
+
+executable trees-monitor-summary
+  main-is:             trees-monitor-summary.hs
+  -- other-extensions:
+  build-depends:
+    , attoparsec
+    , base
+    , bytestring
+    , comonad
+    , elynx-tree
+    , filepath
+    , matrices
+    , statistics
+    , vector
+     
+  ghc-options: -Wall
+  default-language:    Haskell2010
+
+executable trees-monitor-summary-ultrametric
+  main-is:             trees-monitor-summary-ultrametric.hs
+  -- other-extensions:
+  build-depends:
+    , attoparsec
+    , base
+    , bytestring
+    , comonad
+    , elynx-tree
+    , filepath
+    , matrices
+    , statistics
+    , vector
+     
+  ghc-options: -Wall
+  default-language:    Haskell2010
+
+executable trees-monitor-to-nexus
+  main-is:             trees-monitor-to-nexus.hs
+  -- other-extensions:
+  build-depends:
+    , attoparsec
+    , base
+    , bytestring
+    , elynx-tree
+    , filepath
+     
+  ghc-options: -Wall
+  default-language:    Haskell2010
+EOF
+        cat > scripts/cabal.project <<EOF
+packages: 
+  ./mcmc-date-scripts.cabal
+  ../mcmc-date.cabal
+EOF
+        cd scripts
+	cp tree-identify tree-identify.hs
+        cp trees-midpoint-root trees-midpoint-root.hs
+        cp trees-monitor-summary trees-monitor-summary.hs
+        cp trees-monitor-summary-ultrametric trees-monitor-summary-ultrametric.hs
+        cp trees-monitor-to-nexus trees-monitor-to-nexus.hs
+        CABAL_CONFIG="/etc/cabal/config" cabal build
+        CABAL_CONFIG="/etc/cabal/config" cabal install --install-method=copy
+	echo "Copying the bash scripts that do not require compilation to /opt/haskell/bin/"
+	cp trees-analyze /opt/haskell/bin/
+	cp trees-monitor-densitree /opt/haskell/bin/
+	cp trace-thin /opt/haskell/bin/
+	cp analyze /opt/haskell/bin/	
+	echo "Removing .git and unnecessary directories from mcmc-date"
+	rm -rf /mcmc-date/.git
+	rm -rf /mcmc-date/tutorial/goe/data
+	rm -rf /mcmc-date/bench/comparison_with_mcmctree
+	rm -rf /mcmc-date/scripts-analyze-stack
+	echo "Removing developmental packages not necessary anymore"
+	apt purge --yes build-essential git
+	echo "Removing orphaned packages"
+	apt autoremove --yes --purge
+	echo "Removing apt cache"
+	apt-get clean --yes
+	rm -rf /var/lib/apt/lists/*
+
+
+Bootstrap: docker
+From: debian:trixie-slim
+Stage: final
+
+%files from build
+	/opt/haskell/bin/* /usr/local/bin/
+
+%post
+	export DEBIAN_FRONTEND=noninteractive
+        apt update
+        echo "Installing mcmc-date library dependencies"
+        apt-get install --yes --no-install-recommends zlib1g libblas3 liblapack3 \
+				libopenblas0-pthread libgfortran5 libgcc-s1 libgmp10 \
+				libc6 libc6-dev libffi8 libnuma1
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
+
+%runscript
+	if [ $1 = "run" ]; then
+		mcmc-date-run "$@"
+	elif [ $1 = "prepare" ]; then
+		mcmc-date-run "$@"
+	elif [ $1 = "continue" ]; then
+		mcmc-date-run "$@"
+	elif [ $1 = "marginal-likelihood" ]; then
+		mcmc-date-run "$@"
+	elif [ $1 = "analyze" ]; then
+		analyze
+	else
+		echo "Unknown command $@."
+		echo "Accepted commands are: run [args], prepare [args], marginal-likelihood [args], continue [args] and analyze." 
+		echo "If you want to do something else, you may want to enter this container in shell mode."
+		echo 
+		echo "Usage examples:"
+		echo "Prepare dataset for mcmc-date:"
+		echo "apptainer run mcmcdate.sif prepare --analysis-name test_prep [other arguments]"
+		echo 
+		echo "Run mcmc-date on a prepared dataset:"
+		echo "apptainer run mcmcdate.sif run --analysis-name test --preparation-name test_prep [other arguments]"
+		echo 
+		echo "Run analyze on a finished mcmc-date run (folder name should be results_*):"
+		echo "apptainer run mcmcdate.sif analyze"
+	fi
