@@ -8,6 +8,8 @@ Currently an [Apptainer](https://apptainer.org/) container is provided which is 
 
 ## Running `mcmc-date` through the Apptainer container on your dataset
 
+If you don't have Apptainer installed on your system yet, please follow the installation instructions [here](https://apptainer.org/docs/admin/main/installation.html#installation-on-linux).
+
 Go to the directory with your dataset (rooted tree, treelist, calibrations and constraints, etc).
 ```
 cd workdir
@@ -43,11 +45,11 @@ where
 - with `-f` we specify the analysis configuration file, 
 - with `-c` we activate calibrations, 
 - with `-k` we activate constraints, 
-- with `ug` we ask for the uncorrelated gamma molecular clock model, 
+- with `ug` we ask for the uncorrelated gamma molecular clock model (write `al` instead for the autocorrelated lognormal model),
 - with `f` we ask for a full covariant likelihood matrix 
 - and finally with `p` we run the preparation step of `mcmc-date`.
 
-See the usage description of `run` below for more options.
+See the usage description of `run` below and the [McmcDate tutorial](https://github.com/dschrempf/mcmc-date/blob/master/tutorial/main/tutorial.pdf) for more information.
 
 ### Run mcmc-date analysis
 ```
@@ -57,7 +59,7 @@ where all the options are the same as above except replacing `p` (prepare) with 
 
 ### Analyze the results
 ```
-./analyze
+./analyze -a -r "$(pwd)/mcmc-date-container/mcmcdate.sif"
 ```
 
 ## Files in this repository
