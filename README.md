@@ -8,7 +8,7 @@ Currently an [Apptainer](https://apptainer.org/) container is provided which is 
 
 ## Running `mcmc-date` through the Apptainer container on your dataset
 
-If you don't have Apptainer installed on your system yet, please follow the installation instructions [here](https://apptainer.org/docs/admin/main/installation.html#installation-on-linux).
+If you don't have Apptainer installed on your system yet, please follow the installation instructions [here](https://apptainer.org/docs/admin/main/installation.html#installation-on-linux). Apptainer version 1.4.2 was used for creating and testing this container.
 
 Go to the directory with your dataset (rooted tree, treelist, calibrations and constraints, etc).
 ```
